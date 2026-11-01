@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101014">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Alliumflower</title>
+<style>
+:root{color-scheme:dark;--bg:#101014;--panel:#1b1b22;--panel2:#24242d;--ink:#f5f4f8;--muted:#a3a0ad;--line:#34333e;--accent:#b99aff;--accent2:#8b65d8;--good:#53d58a;--bad:#ff777e;--warn:#f2bd65}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px -apple-system,BlinkMacSystemFont,"SF Pro Display",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 calc(88px + env(safe-area-inset-bottom))}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+.shell{max-width:760px;margin:auto;padding:16px}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0 20px}
+.brand{font-size:25px;font-weight:750;letter-spacing:-.8px}.brand span{color:var(--accent)}
+.sub{color:var(--muted);font-size:12px;margin-top:3px}
+.iconbtn,.btn{border:0;border-radius:14px;padding:11px 15px;background:var(--accent);color:#17121f;font-weight:700}
+.iconbtn{background:var(--panel2);color:var(--ink)}
+.btn.secondary{background:var(--panel2);color:var(--ink)}.btn.danger{background:#48252b;color:#ffb6bb}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:19px;padding:16px;margin:12px 0}
+h1{font-size:24px;margin:0 0 6px}h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 2px 10px}
+p{line-height:1.5}.muted{color:var(--muted)}.small{font-size:12px;color:var(--muted)}
+label{display:block;color:var(--muted);font-size:13px;margin:12px 0 6px}
+input,select,textarea{width:100%;border:1px solid var(--line);background:#14141a;color:var(--ink);border-radius:12px;padding:12px;min-height:45px}
+textarea{min-height:75px;resize:vertical}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:var(--panel2);border-radius:15px;padding:13px;min-width:0}.stat b{display:block;font-size:21px}.stat span{font-size:11px;color:var(--muted)}
+.nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:8px 10px calc(8px + env(safe-area-inset-bottom));display:flex;justify-content:center;gap:7px;background:#17171de8;backdrop-filter:blur(22px);border-top:1px solid var(--line)}
+.nav button{flex:1;max-width:180px;border:0;border-radius:12px;padding:11px 4px;background:transparent;color:var(--muted);font-size:12px}.nav button.active{background:#332b43;color:var(--accent);font-weight:700}
+.badge{display:inline-block;border-radius:99px;background:#332b43;color:var(--accent);font-size:11px;padding:5px 9px}
+.order{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:14px;margin:9px 0}.order h3{font-size:16px;margin:0 0 5px}.order .meta{font-size:12px;color:var(--muted);line-height:1.6}.order .actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.order .actions button{flex:1;min-width:100px}
+.empty{text-align:center;color:var(--muted);padding:30px 12px}.hidden{display:none!important}
+#toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#eee;color:#17121f;border-radius:13px;padding:11px 16px;z-index:20;max-width:90%;box-shadow:0 8px 30px #0008}
+#busy{position:fixed;inset:0;background:#09090dcc;display:grid;place-items:center;z-index:30}
+@media(max-width:480px){.grid{grid-template-columns:1fr}.shell{padding:13px}.stats{gap:6px}.stat{padding:10px}.stat b{font-size:18px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+ <div><div class="brand">Allium<span>flower</span></div><div class="sub" id="headerSub">Управление цветочным магазином</div></div>
+ <button class="iconbtn hidden" id="logoutBtn">Выйти</button>
+</header>
+<main id="app"><div class="empty">Загрузка приложения…</div></main>
+</div>
+<nav class="nav hidden" id="nav">
+ <button data-tab="home" class="active">Главная</button>
+ <button data-tab="orders">Заказы</button>
+ <button data-tab="profile">Профиль</button>
+</nav>
+<div id="toast" class="hidden"></div><div id="busy" class="hidden"><div class="card">Подключение к Firebase…</div></div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+"use strict";
+/* Firebase Web config — идентификатор клиентского приложения. Доступ защищается Firestore Rules. */
+const firebaseConfig={
+ apiKey:"AIzaSyAjvGmsPZSJGc0bnlsg9s4mntXuReBQM1E",
+ authDomain:"alliumshop.firebaseapp.com",
+ databaseURL:"https://alliumshop-default-rtdb.asia-southeast1.firebasedatabase.app",
+ projectId:"alliumshop",
+ storageBucket:"alliumshop.firebasestorage.app",
+ messagingSenderId:"115056113788",
+ appId:"1:115056113788:web:e228808cb564c9718671f9",
+ measurementId:"G-4E4E1EG9FJ"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money=n=>Math.round(Number(n)||0).toLocaleString("ru-RU")+" ₸";
+const dateNow=()=>{const d=new Date();return d.toISOString().slice(0,10)};
+const statuses=["Новый","Собирается","Готов","В пути","Выдан"];
+let currentUser=null,staff=null,orders=[],tab="home",unsubOrders=null,unsubStaff=null;
+function toast(msg){$("toast").textContent=msg;$("toast").classList.remove("hidden");setTimeout(()=>$("toast").classList.add("hidden"),3200)}
+function busy(v){$("busy").classList.toggle("hidden",!v)}
+function canManageOrders(){return ["admin","operator"].includes(staff?.role)}
+function roleName(r){return ({admin:"Администратор",operator:"Оператор",florist:"Флорист",courier:"Курьер"})[r]||"Неизвестная роль"}
+function showLogin(error=""){
+ $("nav").classList.add("hidden");$("logoutBtn").classList.add("hidden");
+ $("app").innerHTML=`<section class="card">
+ <h1>Вход в Alliumflower</h1><p class="muted">Войдите с рабочей учётной записью Firebase. Самостоятельная регистрация и выбор роли отключены.</p>
+ <form id="loginForm">
+ <label for="email">Email</label><input id="email" type="email" autocomplete="username" required placeholder="name@example.com">
+ <label for="password">Пароль</label><input id="password" type="password" autocomplete="current-password" required>
+ <div style="margin-top:15px"><button class="btn" style="width:100%">Войти</button></div>
+ </form>
+ <button class="btn secondary" id="resetBtn" style="width:100%;margin-top:9px">Забыли пароль?</button>
+ ${error?`<p style="color:var(--bad)">${esc(error)}</p>`:""}
+ </section><p class="small">Доступ предоставляется администратором через Firebase Authentication и документ staff с вашим UID.</p>`;
+ $("loginForm").addEventListener("submit",async e=>{e.preventDefault();busy(true);try{await auth.signInWithEmailAndPassword($("email").value.trim(),$("password").value)}catch(err){toast(authError(err.code))}finally{busy(false)}});
+ $("resetBtn").onclick=async()=>{const email=$("email").value.trim();if(!email){toast("Сначала укажите Email");return}try{await auth.sendPasswordResetEmail(email);toast("Письмо для сброса пароля отправлено")}catch(e){toast(authError(e.code))}};
+}
+function authError(code){return ({ "auth/invalid-credential":"Неверный email или пароль","auth/user-not-found":"Пользователь не найден","auth/wrong-password":"Неверный пароль","auth/too-many-requests":"Слишком много попыток. Попробуйте позже.","auth/network-request-failed":"Проверьте подключение к интернету","auth/invalid-email":"Некорректный email","auth/user-disabled":"Учётная запись отключена"})[code]||("Ошибка авторизации: "+code)}
+function accessDenied(message){$("nav").classList.add("hidden");$("logoutBtn").classList.remove("hidden");$("app").innerHTML=`<section class="card"><h1>Нет доступа</h1><p>${esc(message)}</p><p class="muted">Попросите администратора проверить документ staff/${esc(currentUser.uid)}: active должен быть true, role — одной из разрешённых ролей.</p><button class="btn secondary" id="retryBtn">Проверить снова</button></section>`;$("retryBtn").onclick=loadStaff}
+async function loadStaff(){
+ if(!currentUser)return;busy(true);
+ try{
+  const snap=await db.collection("staff").doc(currentUser.uid).get();
+  if(!snap.exists){accessDenied("Для вашей учётной записи ещё не создан профиль сотрудника.");return}
+  staff=snap.data();
+  if(staff.active!==true||!["admin","operator","florist","courier"].includes(staff.role)){accessDenied("Профиль не активирован или роль не разрешена.");return}
+  $("headerSub").textContent=(staff.name||currentUser.email)+" · "+roleName(staff.role);
+  $("logoutBtn").classList.remove("hidden");$("nav").classList.remove("hidden");
+  subscribeOrders();render();
+ }catch(e){accessDenied(e.code==="permission-denied"?"Firestore отклонил чтение профиля. Проверьте безопасные правила Firestore из файла firestore.rules.":"Не удалось загрузить профиль: "+(e.code||e.message))}
+ finally{busy(false)}
+}
+function subscribeOrders(){
+ if(unsubOrders)unsubOrders();
+ let q=db.collection("orders").orderBy("ts","desc").limit(300);
+ if(staff.role==="courier")q=db.collection("orders").where("courier","==",currentUser.uid).orderBy("ts","desc").limit(300);
+ unsubOrders=q.onSnapshot(s=>{orders=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>toast("Ошибка загрузки заказов: "+e.code));
+}
+function render(){
+ if(!staff)return;
+ $("nav").querySelectorAll("button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+ if(tab==="profile")return renderProfile();
+ if(tab==="orders")return renderOrders();
+ const active=orders.filter(o=>Number(o.st)<4),today=orders.filter(o=>o.date===dateNow());
+ $("app").innerHTML=`<h1>Добро пожаловать, ${esc(staff.name||"сотрудник")}</h1><p class="muted">${new Date().toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})}</p>
+ <div class="stats"><div class="stat"><b>${active.length}</b><span>Активные заказы</span></div><div class="stat"><b>${today.length}</b><span>Сегодня</span></div><div class="stat"><b>${orders.filter(o=>Number(o.st)===4).length}</b><span>Выдано всего</span></div></div>
+ <h2>Ближайшие заказы</h2>${active.slice(0,5).map(orderCard).join("")||'<div class="empty">Активных заказов пока нет</div>'}
+ ${canManageOrders()?'<button class="btn" style="width:100%;margin-top:12px" id="newOrderBtn">＋ Новый заказ</button>':""}`;
+ const b=$("newOrderBtn");if(b)b.onclick=()=>orderForm();
+}
+function renderOrders(){
+ $("app").innerHTML=`<div class="row"><div><h1>Заказы</h1><p class="muted">${orders.length} записей загружено</p></div>${canManageOrders()?'<button class="btn" id="newOrderBtn">＋ Заказ</button>':""}</div>
+ <div class="grid" style="margin:12px 0"><input id="searchOrder" placeholder="Поиск по имени или телефону"><select id="filterStatus"><option value="">Все статусы</option>${statuses.map((s,i)=>`<option value="${i}">${s}</option>`).join("")}</select></div>
+ <div id="orderList">${orders.map(orderCard).join("")||'<div class="empty">Заказов пока нет</div>'}</div>`;
+ const b=$("newOrderBtn");if(b)b.onclick=()=>orderForm();
+ const update=()=>{const q=$("searchOrder").value.toLowerCase(),f=$("filterStatus").value;const list=orders.filter(o=>(!f||String(o.st)===f)&&(`${o.client||""} ${o.phone||""} ${o.bn||""}`).toLowerCase().includes(q));$("orderList").innerHTML=list.map(orderCard).join("")||'<div class="empty">Ничего не найдено</div>';bindOrderButtons()};
+ $("searchOrder").oninput=update;$("filterStatus").onchange=update;bindOrderButtons();
+}
+function orderCard(o){
+ const delivery=o.dv?`Доставка: ${esc(o.addr||"адрес не указан")} · ${esc(o.time||"")}`:"Самовывоз";
+ return `<article class="order"><div class="row"><h3>${esc(o.bn||"Заказ")} · ${money(o.p)}</h3><span class="badge">${esc(statuses[Number(o.st)]||"Неизвестно")}</span></div>
+ <div class="meta">${esc(o.client||"Клиент")} · ${esc(o.phone||"")}<br>${esc(o.date||"")} ${delivery}<br>Оплата: ${esc(o.pay||"—")} · ${o.paid?"Оплачен":"Не оплачен"}<br>${o.note?`Комментарий: ${esc(o.note)}`:""}</div>
+ <div class="actions">${canManageOrders()?`<button class="btn secondary" data-edit="${esc(o.id)}">Изменить</button>`:""}${staff.role!=="courier"&&staff.role!=="florist"&&canManageOrders()?`<button class="btn danger" data-delete="${esc(o.id)}">Удалить</button>`:""}${canChangeStatus(o)?`<button class="btn" data-next="${esc(o.id)}">${nextLabel(o)}</button>`:""}</div></article>`;
+}
+function canChangeStatus(o){if(staff.role==="admin"||staff.role==="operator")return true;if(staff.role==="florist")return Number(o.st)<=1;if(staff.role==="courier")return Number(o.st)===3;return false}
+function nextLabel(o){if(staff.role==="courier")return "Отметить доставленным";return Number(o.st)===0?"Начать сборку":Number(o.st)===1?"Отметить готовым":Number(o.st)===2?(o.dv?"Передать курьеру":"Выдать заказ"):"Отметить выданным"}
+function bindOrderButtons(){
+ document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>orderForm(orders.find(o=>o.id===b.dataset.edit)));
+ document.querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteOrder(b.dataset.delete));
+ document.querySelectorAll("[data-next]").forEach(b=>b.onclick=()=>advanceOrder(b.dataset.next));
+}
+function orderForm(old=null){
+ const editing=!!old;
+ const form=`<div class="card"><div class="row"><h1>${editing?"Изменить заказ":"Новый заказ"}</h1><button class="iconbtn" id="closeForm">Закрыть</button></div>
+ <form id="orderForm">
+ <div class="grid"><div><label>Имя клиента *</label><input name="client" required value="${esc(old?.client||"")}"></div><div><label>Телефон *</label><input name="phone" required value="${esc(old?.phone||"+7")}"></div></div>
+ <label>Название букета *</label><input name="bn" required value="${esc(old?.bn||"")}">
+ <div class="grid"><div><label>Цена букета, ₸ *</label><input name="p" type="number" min="0" required value="${esc(old?.p??"")}"></div><div><label>Дата *</label><input name="date" type="date" required value="${esc(old?.date||dateNow())}"></div></div>
+ <div class="grid"><div><label>Время</label><input name="time" type="time" value="${esc(old?.time||"")}"></div><div><label>Источник</label><select name="src"><option>Instagram</option><option>WhatsApp</option><option>2ГИС</option><option>Сарафан</option><option>Другое</option></select></div></div>
+ <label>Доставка</label><select name="dv"><option value="false">Самовывоз</option><option value="true">Доставка</option></select>
+ <label>Адрес доставки</label><input name="addr" value="${esc(old?.addr||"")}">
+ <div class="grid"><div><label>Стоимость доставки, ₸</label><input name="fee" type="number" min="0" value="${esc(old?.fee||0)}"></div><div><label>Оплата курьеру, ₸</label><input name="cpay" type="number" min="0" value="${esc(old?.cpay||0)}"></div></div>
+ <div class="grid"><div><label>Способ оплаты</label><select name="pay"><option>Kaspi</option><option>Наличные</option><option>Перевод</option></select></div><div><label>Статус оплаты</label><select name="paid"><option value="false">Не оплачен</option><option value="true">Оплачен</option></select></div></div>
+ <label>UID курьера (если назначен)</label><input name="courier" value="${esc(old?.courier||"")}" placeholder="UID сотрудника-курьера">
+ <label>Пожелания / открытка</label><textarea name="note">${esc(old?.note||"")}</textarea>
+ <button class="btn" style="width:100%;margin-top:15px">${editing?"Сохранить изменения":"Создать заказ"}</button></form></div>`;
+ $("app").innerHTML=form;
+ $("closeForm").onclick=()=>{tab="orders";render()};
+ const f=$("orderForm");f.elements.src.value=old?.src||"Instagram";f.elements.dv.value=String(!!old?.dv);f.elements.pay.value=old?.pay||"Kaspi";f.elements.paid.value=String(!!old?.paid);
+ f.onsubmit=async e=>{e.preventDefault();const v=Object.fromEntries(new FormData(f).entries());if(v.dv==="true"&&!v.addr.trim()){toast("Укажите адрес доставки");return}
+ const payload={client:v.client.trim(),phone:v.phone.trim(),bn:v.bn.trim(),p:Number(v.p),date:v.date,time:v.time,dv:v.dv==="true",addr:v.dv==="true"?v.addr.trim():"",fee:Number(v.fee)||0,cpay:Number(v.cpay)||0,src:v.src,pay:v.pay,paid:v.paid==="true",courier:v.courier.trim(),note:v.note.trim(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+ try{busy(true);if(editing)await db.collection("orders").doc(old.id).update(payload);else await db.collection("orders").add({...payload,st:0,by:currentUser.uid,ts:Date.now(),createdAt:firebase.firestore.FieldValue.serverTimestamp()});toast(editing?"Заказ обновлён":"Заказ создан");tab="orders";render()}catch(err){toast("Не удалось сохранить: "+err.code)}finally{busy(false)}};
+}
+async function advanceOrder(id){
+ const o=orders.find(x=>x.id===id);if(!o)return;
+ let next=Number(o.st)+1;if(staff.role==="courier")next=4;if(next>4)return;
+ if(next===4&&!o.dv){} 
+ try{busy(true);await db.collection("orders").doc(id).update({st:next,updatedAt:firebase.firestore.FieldValue.serverTimestamp(),statusBy:currentUser.uid});toast("Статус: "+statuses[next])}catch(e){toast("Не удалось изменить статус: "+e.code)}finally{busy(false)}
+}
+async function deleteOrder(id){if(!confirm("Удалить заказ? Действие нельзя отменить."))return;try{await db.collection("orders").doc(id).delete();toast("Заказ удалён")}catch(e){toast("Удаление запрещено: "+e.code)}}
+function renderProfile(){
+ $("app").innerHTML=`<h1>Профиль</h1><section class="card"><div class="row"><b>${esc(staff.name||"Сотрудник")}</b><span class="badge">${esc(roleName(staff.role))}</span></div><p class="muted">${esc(currentUser.email||"")}<br>UID: ${esc(currentUser.uid)}</p><p class="small">Права доступа назначаются администратором в Firebase. Изменить свою роль из приложения нельзя.</p><button class="btn secondary" id="changePass">Отправить ссылку смены пароля</button></section>`;
+ $("changePass").onclick=async()=>{try{await auth.sendPasswordResetEmail(currentUser.email);toast("Письмо отправлено")}catch(e){toast(authError(e.code))}};
+}
+$("nav").addEventListener("click",e=>{const b=e.target.closest("button[data-tab]");if(!b)return;tab=b.dataset.tab;render()});
+$("logoutBtn").onclick=()=>auth.signOut();
+auth.onAuthStateChanged(async user=>{currentUser=user;staff=null;orders=[];if(unsubOrders){unsubOrders();unsubOrders=null}if(!user){showLogin();return}await loadStaff()});
+</script>
+</body>
+</html>
